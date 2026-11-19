@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:;">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NOVA</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><div class="logo">N</div><div><b>NOVA</b><small>CREATIVE STUDIO</small></div></div>
+      <div class="workspace"><span class="dot"></span> Kişisel çalışma alanı</div>
+      <div class="nav-label">ÇALIŞMA ALANI</div>
+      <button class="nav active" data-page="overview">◫ <span>Genel Bakış</span></button>
+      <button class="nav" data-page="projects">▤ <span>Projeler</span></button>
+      <button class="nav" data-page="research">⌕ <span>Araştırma</span></button>
+      <button class="nav" data-page="scripts">✎ <span>Senaryo Atölyesi</span></button>
+      <button class="nav" data-page="media">▧ <span>Medya Kütüphanesi</span></button>
+      <button class="nav" data-page="production">◉ <span>Video Üretimi</span></button>
+      <button class="nav" data-page="youtube">▷ <span>YouTube</span></button>
+      <div class="side-bottom"><div class="user"><div class="avatar">N</div><div><b>NOVA TECH</b><small>Yerel çalışma alanı</small></div></div><div class="version">NOVA 0.1.0 · ÖN SÜRÜM</div></div>
+    </aside>
+    <main class="main">
+      <header><div><div class="eyebrow">NOVA / STÜDYO</div><h1 id="page-title">Genel Bakış</h1><p id="page-subtitle">Fikirden yayına, tüm video üretim sürecin tek yerde.</p></div><div class="header-right"><span class="status"><i></i> Yerel uygulama</span><div class="avatar">N</div></div></header>
+      <section id="content">
+        <div class="welcome"><div><span class="eyebrow light">YARATICI ÜRETİM MERKEZİ</span><h2>Yeni bir hikâye<br>başlat.</h2><p>Belgesel ve kısa video projelerini planla, üret ve yönet.</p><button class="primary" id="new-project">＋ Yeni Proje Oluştur</button></div><div class="orb"><div class="orb-core">N</div></div></div>
+        <div class="section-head"><div><h3>Üretim alanları</h3><p>NOVA'nın temel araçlarına hızlı erişim</p></div></div>
+        <div class="cards">
+          <article class="tile" data-go="research"><div class="tile-icon">⌕</div><h4>Araştırma</h4><p>Konu, kaynak ve tarihsel doğrulama.</p><span>Alana git ↗</span></article>
+          <article class="tile" data-go="scripts"><div class="tile-icon">✎</div><h4>Senaryo Atölyesi</h4><p>Türkçe ve İngilizce senaryo taslağı.</p><span>Alana git ↗</span></article>
+          <article class="tile" data-go="production"><div class="tile-icon">◉</div><h4>Video Üretimi</h4><p>Sahne planı, Muse promptları ve kurgu.</p><span>Alana git ↗</span></article>
+          <article class="tile" data-go="youtube"><div class="tile-icon">▷</div><h4>YouTube</h4><p>Başlık, açıklama, küçük resim ve yayın onayı.</p><span>Alana git ↗</span></article>
+        </div>
+        <div class="notice"><div class="notice-mark">✦</div><div><b>Kontrol sende</b><p>YouTube yayınları varsayılan olarak özel kalır. Herkese açık yayın için senden ayrıca onay alınır.</p></div></div>
+      </section>
+      <footer><span>NOVA · NOVA TECH</span><span>Projelerin bu Mac'te saklanır.</span></footer>
+    </main>
+  </div>
+  <script src="./renderer.js"></script>
+</body>
+</html>

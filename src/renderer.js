@@ -1,88 +1,72 @@
-const pages = {
-  overview: ["Genel Bakış", "Fikirden yayına, tüm video üretim sürecin tek yerde."],
-  projects: ["Projeler", "Belgesel ve Shorts çalışmalarını yönet."],
-  research: ["Araştırma", "Kaynaklarını, notlarını ve tarihsel doğrulamaları kaydet."],
-  scripts: ["Senaryo Atölyesi", "Türkçe ve İngilizce anlatım metinlerini hazırla."],
-  media: ["Medya Kütüphanesi", "Projelerin için medya dosyalarını düzenle."],
-  production: ["Video Üretimi", "Meta Muse sahne promptlarını hazırla ve dışa aktar."],
-  youtube: ["YouTube", "Video paketini hazırla ve yayın öncesi kontrol et."]
-};
-const KEY = "nova.workspace.v1";
-const defaults = { projects: [], research: [], scripts: [], prompts: [], media: [] };
-let state = loadState();
-function loadState() { try { return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch { return structuredClone(defaults); } }
-function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
-function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-function id() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
-function activeProject() { return state.projects[0]; }
-function projectOptions() { return state.projects.map(p => '<option value="'+esc(p.id)+'">'+esc(p.title)+'</option>').join(""); }
-function go(key) {
-  document.querySelectorAll(".nav").forEach(b => b.classList.toggle("active", b.dataset.page === key));
-  document.querySelector("#page-title").textContent = pages[key][0];
-  document.querySelector("#page-subtitle").textContent = pages[key][1];
-  render(key);
+const $=s=>document.querySelector(s);
+const KEY="nova.desktop.v2";
+const defaults={name:"Orhan",model:"",theme:"cyber",messages:[],tasks:[],files:[]};
+let state={...defaults,...load()};
+let models=[];
+let activeView="home";
+let expanded=false;
+function load(){try{return JSON.parse(localStorage.getItem(KEY)||"{}")}catch{return {}}}
+function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function toast(s){const t=$("#toast");t.textContent=s;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2600)}
+function clock(){const d=new Date();$("#clock").textContent=d.toLocaleTimeString("tr-CA",{hour:"2-digit",minute:"2-digit"});$("#date").textContent=d.toLocaleDateString("tr-TR",{day:"2-digit",month:"long",year:"numeric"});}
+function heading(title,sub){return '<div class="view-heading"><h1>'+title+'</h1><p>'+sub+'</p></div>'}
+function go(view){
+ activeView=view;document.querySelectorAll(".side-link").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
+ const root=$("#workspace");
+ if(view==="home"){root.innerHTML=home();bindHome();return}
+ if(view==="agent"){root.innerHTML=heading("NOVA Agent","Yerel yapay zekâ asistanın ve görev merkezi.")+'<div class="view-card"><h3>NOVA Agent</h3><p>Sağdaki sohbet alanından NOVA ile konuş. Yerel modelin bağlıysa yanıtlar Mac’indeki Ollama üzerinden üretilir.</p><button class="primary" data-action="focus-chat">Sohbete geç</button></div><div class="view-card"><h3>Yetenek sınırları</h3><p>NOVA şu anda yerel modelle sohbet edebilir, dosya seçebilir ve güvenli bağlantıları açabilir. Bilgisayar üzerinde genel amaçlı işlem yapma ve kendi kendine görev yürütme motorları henüz tamamlanmadı.</p></div>';return}
+ if(view==="apps"){root.innerHTML=heading("Uygulamalar","Çalışma alanların ve sık kullandığın servisler.")+'<div class="quick-grid">'+[
+ ["🌐","Web Tarayıcı","https://www.google.com"],["✉","E-posta","https://mail.google.com"],["📅","Takvim","https://calendar.google.com"],["☁","Drive","https://drive.google.com"],["💻","GitHub","https://github.com"],["✦","ChatGPT","https://chatgpt.com"],["🎨","Canva","https://www.canva.com"],["▶","YouTube","https://www.youtube.com"]
+ ].map(x=>'<button class="quick-card" data-url="'+x[2]+'"><span class="qicon">'+x[0]+'</span><b>'+x[1]+'</b><small>Web uygulamasını aç</small></button>').join("")+'</div><div class="view-card"><p>Bu kısayollar seçtiğin servisi varsayılan tarayıcıda açar. Yerel Mac uygulamalarının otomatik keşfi henüz eklenmedi.</p></div>';return}
+ if(view==="models"){root.innerHTML=heading("Model Merkezi","Mac’indeki Ollama modellerini görüntüle ve sohbet modelini seç.")+'<div class="view-card"><div class="section-title"><div><h3>Yerel model bağlantısı</h3><p>Ollama · http://127.0.0.1:11434</p></div><button class="secondary" data-action="refresh-models">Yenile</button></div><div id="model-list">'+modelList()+'</div></div><div class="view-card"><h3>Model kullanımı</h3><p>Seçtiğin model NOVA Agent sohbetinde kullanılır. Model indirme ve bulut sağlayıcı entegrasyonları sonraki geliştirme aşamasındadır.</p></div>';return}
+ if(view==="automation"){root.innerHTML=heading("Otomasyon & Ajanlar","Tekrarlanan işlerini ve görev fikirlerini tek yerde topla.")+'<div class="view-card"><h3>Görev listesi oluştur</h3><form id="task-form"><label class="field">Görev<input name="task" required placeholder="Örn. Her cuma haftalık raporu hazırla"></label><button class="primary">Görevi kaydet</button></form></div><div class="view-card"><h3>Kayıtlı görevler</h3>'+(state.tasks.length?state.tasks.map((t,i)=>'<div class="list-row"><span>'+esc(t)+'</span><button class="secondary" data-delete-task="'+i+'">Sil</button></div>').join(""):'<p class="muted">Henüz görev eklenmedi. Bu liste görev planlarını saklar; arka planda otomatik çalıştırma henüz etkin değildir.</p>')+'</div>';return}
+ if(view==="files"){root.innerHTML=heading("Dosyalar","Mac’indeki dosya ve klasörleri NOVA içinden seç.")+'<div class="view-card"><h3>Dosya seçici</h3><p>Dosya veya klasör seçerek NOVA içinde listeleyebilir, Finder ile açabilirsin.</p><button class="primary" data-action="choose-files">＋ Dosya / klasör seç</button></div><div class="view-card"><h3>Son seçilenler</h3>'+(state.files.length?state.files.map((p,i)=>'<div class="list-row"><span>'+esc(p.split("/").pop())+'</span><button class="secondary" data-open-file="'+i+'">Finder’da göster</button></div>').join(""):'<p class="muted">Henüz dosya seçilmedi.</p>')+'</div>';return}
+ if(view==="security"){root.innerHTML=heading("Güvenlik Merkezi","NOVA'nın güvenli çalışma ilkeleri.")+'<div class="view-card"><h3>Yerel veri</h3><p>Sohbet geçmişi, tercihlerin ve görev listelerin bu uygulamanın yerel depolamasında tutulur. Şu an sohbet içeriği otomatik olarak buluta gönderilmez.</p></div><div class="view-card"><h3>İşlem onayı</h3><p>NOVA şu an dosya seçimini kullanıcı başlatınca yapar. Harici web bağlantıları açılmadan önce kullanıcı tıklaması gerekir. Genel terminal komutları veya sessiz sistem değişiklikleri çalıştırılmaz.</p></div><div class="view-card"><h3>Geliştirme durumu</h3><p>İzin yönetimi, ayrıntılı işlem günlüğü, uygulama izinleri ve ajan eylem onay sistemi henüz tamamlanmadı.</p></div>';return}
+ if(view==="settings"){root.innerHTML=heading("Ayarlar","NOVA masaüstü tercihlerini düzenle.")+'<div class="view-card"><h3>Kullanıcı profili</h3><form id="profile-form"><label class="field">Sana nasıl hitap edeyim?<input name="name" value="'+esc(state.name)+'" maxlength="40"></label><button class="primary">Kaydet</button></form></div><div class="view-card"><h3>Görünüm</h3><p>Etkin tema: Cyber · Mor / elektrik mavisi</p><button class="secondary" data-action="theme">Cyber temasını uygula</button></div><div class="view-card"><h3>Uygulama</h3><p>NOVA Desktop 0.2.0 · NOVA TECH</p><p>Bu sürüm tam ekran masaüstü prototipidir. macOS'un yerine geçen bağımsız bir işletim sistemi değildir.</p></div>';return}
 }
-function card(title, desc, action, label="Aç") {
-  return '<article class="tile" data-go="'+action+'"><div class="tile-icon">✦</div><h4>'+title+'</h4><p>'+desc+'</p><span>'+label+' ↗</span></article>';
+function home(){
+ return '<section class="welcome"><div><div class="eyebrow">WELCOME TO NOVA · YOUR AI DESKTOP</div><h1>Merhaba <em>'+esc(state.name)+'</em>,</h1><p>NOVA ile bugün ne yapmak istersin?</p></div><div class="hero-logo"><span>N</span></div></section>'+
+ '<div class="quick-grid"><button class="quick-card" data-prompt="Bugün yapmam gerekenleri planlamama yardım et."><span class="qicon">ϟ</span><b>Hızlı Başlat</b><small>Sık kullanılanlar</small></button><button class="quick-card" data-prompt="Şu konu hakkında kapsamlı araştırma yapmama yardım et."><span class="qicon">✧</span><b>Araştır</b><small>Web ve bilgi</small></button><button class="quick-card" data-view="apps"><span class="qicon">▷</span><b>Üret</b><small>Uygulamalar ve araçlar</small></button><button class="quick-card" data-view="automation"><span class="qicon">▱</span><b>Otomasyon</b><small>Görevlerini planla</small></button></div>'+
+ '<div class="dash-grid"><div class="dash-card"><h3>SAAT VE TARİH</h3><div class="time-weather"><div><div class="big-time" id="dash-time">--:--</div><div class="subtle" id="dash-date"></div></div><div class="subtle">Yerel saat</div></div></div><div class="dash-card"><h3>SİSTEM DURUMU</h3><div class="metric-row"><div class="metric"><div class="meter" id="cpu-meter" style="--v:0%"><b id="cpu-value">--</b></div><small>CPU</small></div><div class="metric"><div class="meter" id="ram-meter" style="--v:0%"><b id="ram-value">--</b></div><small>RAM</small></div><div class="metric"><div class="meter" id="disk-meter" style="--v:0%"><b>—</b></div><small>Disk*</small></div><div class="metric"><div class="meter" id="gpu-meter" style="--v:0%"><b>—</b></div><small>GPU*</small></div></div><div class="subtle" style="margin-top:9px">* Disk ve GPU sensörleri bu sürümde bağlı değil.</div></div><div class="dash-card"><h3>HIZLI UYGULAMALAR</h3><div class="app-shortcuts"><button class="app-shortcut" data-url="https://www.microsoft.com/edge" title="Edge">🌐</button><button class="app-shortcut" data-url="https://www.youtube.com" title="YouTube">▶</button><button class="app-shortcut" data-url="https://www.netflix.com" title="Netflix">N</button><button class="app-shortcut" data-url="https://web.whatsapp.com" title="WhatsApp">◉</button><button class="app-shortcut" data-url="https://web.telegram.org" title="Telegram">➤</button><button class="app-shortcut" data-view="apps">＋</button></div></div><div class="dash-card"><h3>NOVA BAĞLANTI DURUMU</h3><div class="list-row"><span>Ollama yerel servis</span><span class="status-pill" id="ollama-pill">Kontrol ediliyor</span></div><div class="list-row"><span>Seçili model</span><span id="home-model">'+esc(state.model||"Seçilmedi")+'</span></div></div></div>';
 }
-function render(key) {
-  const root = document.querySelector("#content");
-  if (key === "overview") {
-    root.innerHTML = '<div class="welcome"><div><span class="eyebrow light">YARATICI ÜRETİM MERKEZİ</span><h2>Yeni bir hikâye<br>başlat.</h2><p>Belgesel ve kısa video projelerini planla, üret ve yönet.</p><button class="primary" id="new-project">＋ Yeni Proje Oluştur</button></div><div class="orb"><div class="orb-core">N</div></div></div><div class="section-head"><div><h3>Üretim alanları</h3><p>NOVA’nın araçlarına hızlı erişim</p></div></div><div class="cards">'+card("Araştırma","Kaynak, not ve tarihsel doğrulama.","research")+card("Senaryo Atölyesi","Türkçe ve İngilizce metinler.","scripts")+card("Video Üretimi","Meta Muse promptları ve sahne planı.","production")+card("YouTube","Yayın paketi ve onay kontrolü.","youtube")+'</div><div class="notice"><div class="notice-mark">✦</div><div><b>Kontrol sende</b><p>YouTube yayınları otomatik olarak herkese açık yapılmaz. Yayın öncesi onayın zorunludur.</p></div></div>';
-    return;
-  }
-  if (key === "projects") {
-    root.innerHTML = '<div class="section-head"><div><h3>Projelerin</h3><p>'+state.projects.length+' kayıtlı proje</p></div><button class="primary" id="show-project-form">＋ Proje Oluştur</button></div><div id="project-form-wrap"></div><div class="project-list">'+(state.projects.length ? state.projects.map(p => '<article class="project-row"><div class="tile-icon">▤</div><div class="project-info"><b>'+esc(p.title)+'</b><small>'+esc(p.kind)+' · '+esc(p.language)+' · '+new Date(p.created).toLocaleDateString("tr-TR")+'</small></div><button class="ghost" data-delete-project="'+p.id+'">Sil</button></article>').join("") : '<div class="empty"><div class="empty-icon">▤</div><h2>Henüz proje yok</h2><p>İlk belgeselini veya Shorts çalışmanı oluştur.</p><button class="primary" id="empty-create">＋ İlk Projeyi Oluştur</button></div>')+'</div>';
-    document.querySelector("#show-project-form").onclick = showProjectForm;
-    document.querySelector("#empty-create")?.addEventListener("click", showProjectForm);
-    root.querySelectorAll("[data-delete-project]").forEach(b => b.onclick = () => { state.projects=state.projects.filter(p=>p.id!==b.dataset.deleteProject); save(); render(key); });
-    return;
-  }
-  if (key === "research") {
-    root.innerHTML = '<div class="panel"><h3>Araştırma notu ekle</h3><form id="research-form" class="stack"><label>Başlık<input name="title" required placeholder="Örn. Konstantinopolis’in Fethi 1453"></label><label>Kaynak bağlantısı<input name="url" type="url" placeholder="https://..."></label><label>Notlar<textarea name="body" rows="5" placeholder="Bulgu, kaynak özeti ve doğrulama notları..."></textarea></label><button class="primary">Notu Kaydet</button></form></div><div class="section-head"><div><h3>Kayıtlı notlar</h3></div></div>'+ (state.research.length?state.research.map(n=>'<article class="note"><b>'+esc(n.title)+'</b><p>'+esc(n.body)+'</p>'+(n.url?'<a href="#" data-external="'+esc(n.url)+'">'+esc(n.url)+'</a>':'')+'<button class="ghost" data-delete-note="'+n.id+'">Sil</button></article>').join(""):'<div class="empty compact"><p>Henüz araştırma notu eklenmedi.</p></div>');
-    document.querySelector("#research-form").onsubmit=e=>{e.preventDefault();const d=new FormData(e.target);state.research.unshift({id:id(),title:d.get("title"),url:d.get("url"),body:d.get("body")});save();render(key);};
-    root.querySelectorAll("[data-delete-note]").forEach(b=>b.onclick=()=>{state.research=state.research.filter(n=>n.id!==b.dataset.deleteNote);save();render(key);});
-    bindExternal(root); return;
-  }
-  if (key === "scripts") {
-    root.innerHTML = '<div class="panel"><h3>Senaryo taslağı</h3><form id="script-form" class="stack"><label>Proje<select name="project" required>'+projectOptions()+'</select></label><label>Senaryo başlığı<input name="title" required placeholder="Belgesel / Shorts başlığı"></label><label>Dil<select name="language"><option>Türkçe</option><option>English</option></select></label><label>Metin<textarea name="body" rows="12" placeholder="Anlatım metnini veya sahne taslağını yaz..."></textarea></label><button class="primary" '+(!state.projects.length?'disabled':'')+'>Taslağı Kaydet</button></form>'+(state.projects.length?'':'<p class="hint">Senaryo kaydetmek için önce bir proje oluştur.</p>')+'</div><div class="section-head"><div><h3>Kaydedilen senaryolar</h3></div></div>'+(state.scripts.length?state.scripts.map(s=>'<article class="note"><b>'+esc(s.title)+'</b><small>'+esc(s.language)+'</small><p>'+esc(s.body.slice(0,400))+'</p><button class="ghost" data-delete-script="'+s.id+'">Sil</button></article>').join(""):'<div class="empty compact"><p>Henüz senaryo yok.</p></div>');
-    document.querySelector("#script-form").onsubmit=e=>{e.preventDefault();const d=new FormData(e.target);state.scripts.unshift({id:id(),project:d.get("project"),title:d.get("title"),language:d.get("language"),body:d.get("body")});save();render(key);};
-    root.querySelectorAll("[data-delete-script]").forEach(b=>b.onclick=()=>{state.scripts=state.scripts.filter(s=>s.id!==b.dataset.deleteScript);save();render(key);}); return;
-  }
-  if (key === "media") {
-    root.innerHTML = '<div class="panel"><h3>Medya dosyalarını kaydet</h3><p class="hint">Bu sürüm dosya adlarını ve proje bağlantısını kaydeder; dosyaların kendisini henüz NOVA içine kopyalamaz.</p><form id="media-form" class="stack"><label>Proje<select name="project">'+projectOptions()+'</select></label><label>Dosya seç<input name="files" type="file" multiple></label><button class="primary" '+(!state.projects.length?'disabled':'')+'>Seçilenleri listeye ekle</button></form></div><div class="section-head"><div><h3>Medya listesi</h3></div></div>'+(state.media.length?state.media.map(m=>'<article class="project-row"><div class="tile-icon">▧</div><div class="project-info"><b>'+esc(m.name)+'</b><small>'+esc(m.type)+' · '+esc(m.projectTitle)+'</small></div></article>').join(""):'<div class="empty compact"><p>Henüz medya kaydı yok.</p></div>');
-    document.querySelector("#media-form").onsubmit=e=>{e.preventDefault();const d=new FormData(e.target), p=state.projects.find(x=>x.id===d.get("project"));[...(e.target.elements.files.files||[])].forEach(f=>state.media.unshift({id:id(),name:f.name,type:f.type||"Dosya",projectTitle:p?.title||"Proje"}));save();render(key);};return;
-  }
-  if (key === "production") {
-    root.innerHTML = '<div class="panel"><h3>Meta Muse sahne promptu</h3><p class="hint">NOVA, Meta Muse için prompt hazırlar. Video üretimini Meta’nın kendi arayüzünde yapıp çıkan klipleri Medya Kütüphanesi’ne ekleyebilirsin.</p><form id="prompt-form" class="stack"><label>Proje<select name="project">'+projectOptions()+'</select></label><label>Sahne konusu<input name="subject" required placeholder="Örn. 1453 kuşatmasında surların önündeki Osmanlı ordusu"></label><div class="two"><label>Format<select name="format"><option>16:9 sinematik belgesel</option><option>9:16 dikey Shorts</option></select></label><label>Görsel stil<select name="style"><option>Gerçekçi tarihî belgesel, sinematik</option><option>Doğal ışık, gerçekçi kamera</option><option>Animasyon, stilize 3D</option></select></label></div><label>Sahne ayrıntıları<textarea name="details" rows="4" placeholder="Dönem, mekân, kamera hareketi, ışık, atmosfer, aksiyon..."></textarea></label><button class="primary">Prompt Oluştur</button></form></div><div class="section-head"><div><h3>Oluşturulan promptlar</h3></div></div><div id="prompt-list">'+(state.prompts.length?state.prompts.map(p=>'<article class="note"><b>'+esc(p.subject)+'</b><p>'+esc(p.text)+'</p><button class="ghost" data-copy="'+esc(p.id)+'">Promptu Kopyala</button></article>').join(""):'<div class="empty compact"><p>Henüz prompt oluşturulmadı.</p></div>')+'</div>';
-    document.querySelector("#prompt-form").onsubmit=e=>{e.preventDefault();const d=new FormData(e.target);const textPrompt=d.get("subject")+'. '+d.get("details")+'. '+d.get("style")+'. '+d.get("format")+'. Tarihsel ve görsel tutarlılığı koru. Fotogerçekçi, yüksek detaylı, sinematik kompozisyon; sahne içinde yazı, altyazı veya filigran olmasın.';state.prompts.unshift({id:id(),subject:d.get("subject"),text:textPrompt});save();render(key);};
-    root.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>{const p=state.prompts.find(x=>x.id===b.dataset.copy);navigator.clipboard.writeText(p.text).then(()=>{b.textContent="Kopyalandı";}).catch(()=>{b.textContent="Kopyalama başarısız";});});return;
-  }
-  if (key === "youtube") {
-    root.innerHTML = '<div class="panel"><h3>YouTube yayın kontrol listesi</h3><p class="hint">YouTube hesabı henüz bağlanmadı. Bu sürüm yayın paketini hazırlamak ve onay kontrolünü göstermek içindir.</p><form id="youtube-form" class="stack"><label>Video başlığı<input name="title" placeholder="Video başlığı"></label><label>Açıklama<textarea name="description" rows="5" placeholder="Video açıklaması, kaynaklar ve bölümler..."></textarea></label><label>Etiketler<input name="tags" placeholder="tarih, belgesel, 1453"></label><label class="check"><input type="checkbox" required> Video içeriğini ve yayın ayarlarını kontrol ettim.</label><p class="hint">Bu onay yalnızca kontrol listesini tamamlar. NOVA şu anda YouTube'a yükleme veya yayınlama yapmaz.</p><button class="primary">Yayın paketini kaydet</button></form><div id="youtube-saved"></div></div>';
-    document.querySelector("#youtube-form").onsubmit=e=>{e.preventDefault();const d=new FormData(e.target);document.querySelector("#youtube-saved").innerHTML='<div class="notice"><div class="notice-mark">✓</div><div><b>Paket hazırlandı</b><p>'+esc(d.get("title"))+' · Yayınlanmadı. Herkese açık yayın için ayrıca açık onay gerekecek.</p></div></div>';};return;
-  }
-}
-function showProjectForm() {
-  const wrap=document.querySelector("#project-form-wrap");
-  wrap.innerHTML='<div class="panel"><h3>Yeni proje</h3><form id="create-project-form" class="stack"><label>Proje adı<input name="title" required placeholder="Örn. Konstantinopolis 1453"></label><div class="two"><label>Tür<select name="kind"><option>Uzun Belgesel</option><option>YouTube Shorts</option><option>İkisi</option></select></label><label>Dil<select name="language"><option>Türkçe + English</option><option>Türkçe</option><option>English</option></select></label></div><button class="primary">Projeyi Kaydet</button></form></div>';
-  document.querySelector("#create-project-form").onsubmit=e=>{e.preventDefault();const d=new FormData(e.target);state.projects.unshift({id:id(),title:d.get("title"),kind:d.get("kind"),language:d.get("language"),created:new Date().toISOString()});save();render("projects");};
-}
-function bindExternal(root) { root.querySelectorAll("[data-external]").forEach(a=>a.onclick=e=>{e.preventDefault();window.nova?.openExternal(a.dataset.external);}); }
-// Delegated handlers keep navigation working after every screen is re-rendered.
-document.addEventListener("click", (event) => {
-  const nav = event.target.closest(".nav[data-page]");
-  if (nav) { event.preventDefault(); go(nav.dataset.page); return; }
-  const tile = event.target.closest("[data-go]");
-  if (tile) { event.preventDefault(); go(tile.dataset.go); return; }
-  const create = event.target.closest("#new-project, #empty-create, #show-project-form");
-  if (create) {
-    event.preventDefault();
-    if (create.id === "new-project") go("projects");
-    if (create.id === "empty-create" || create.id === "show-project-form" || create.id === "new-project") showProjectForm();
-  }
+function bindHome(){updateSystem();$("#dash-time").textContent=new Date().toLocaleTimeString("tr-CA",{hour:"2-digit",minute:"2-digit"});$("#dash-date").textContent=new Date().toLocaleDateString("tr-TR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});}
+function modelList(){if(!models.length)return '<p class="muted">Ollama bağlantısı yok veya henüz model bulunamadı. Mac’inde Ollama çalıştığından emin ol ve Yenile’ye bas.</p>';return models.map(m=>'<div class="list-row"><span><b>'+esc(m.name)+'</b><small class="muted"> · '+(m.details?.parameter_size||"Yerel model")+'</small></span><button class="'+(state.model===m.name?"primary":"secondary")+'" data-select-model="'+esc(m.name)+'">'+(state.model===m.name?"Seçili":"Kullan")+'</button></div>').join("")}
+async function refreshModels(){const r=await window.nova.getModels();models=r.ok?(r.models||[]):[];$("#connection-label").textContent=r.ok?"Ollama yerel bağlantısı hazır":"Ollama bağlantısı bulunamadı";$(".connection").classList.toggle("off",!r.ok);$("#agent-status").textContent=r.ok?"Yerel AI çevrimiçi":"Yerel model çevrimdışı";if(r.ok&&!state.model&&models.length){state.model=models[0].name;save()}$("#model-label").textContent=state.model||"Model seçilmedi";const pill=$("#ollama-pill");if(pill){pill.textContent=r.ok?"Bağlı":"Bağlı değil";pill.className=r.ok?"status-pill":"subtle"}const list=$("#model-list");if(list)list.innerHTML=modelList();const hm=$("#home-model");if(hm)hm.textContent=state.model||"Seçilmedi";}
+async function updateSystem(){try{const s=await window.nova.system();const c=$("#cpu-value"),r=$("#ram-value");if(c){c.textContent=s.cpu+"%";$("#cpu-meter").style.setProperty("--v",s.cpu+"%");r.textContent=s.memoryUsed+"%";$("#ram-meter").style.setProperty("--v",s.memoryUsed+"%");}}catch{}}
+function addMessage(role,text){const box=$("#chat-messages");const div=document.createElement("div");div.className="message "+role;div.innerHTML=role==="assistant"?'<span class="wave">✦</span><div><p>'+esc(text)+'</p><small>NOVA</small></div>':'<div>'+esc(text)+'</div>';box.appendChild(div);box.scrollTop=box.scrollHeight;}
+function renderHistory(){const box=$("#chat-messages");box.innerHTML='<div class="message assistant"><span class="wave">✦</span><div><b>Merhaba '+esc(state.name)+'!</b><p>Ben NOVA. Bugün senin için ne yapabilirim?</p><small>NOVA AI</small></div></div>';for(const m of state.messages.slice(-30))addMessage(m.role,m.content);}
+async function sendChat(text){const prompt=(text||$("#chat-input").value).trim();if(!prompt)return;$("#chat-input").value="";state.messages.push({role:"user",content:prompt});addMessage("user",prompt);const send=$("#chat-form button.send");send.disabled=true;const status=$("#agent-status");status.textContent="Yanıt hazırlanıyor";if(!state.model){addMessage("assistant","Henüz yerel model seçilmedi. Model Merkezi’nden bir Ollama modeli seç veya Ollama bağlantısını kontrol et.");send.disabled=false;status.textContent="Model bekleniyor";return}const result=await window.nova.chat({model:state.model,messages:[{role:"system",content:"You are NOVA, a helpful general-purpose AI assistant created by NOVA TECH. Reply in the user's language. Be clear, accurate, and honest about capabilities. You cannot claim to perform actions unless a tool has actually done them."},...state.messages.slice(-24)]});if(result.ok&&result.message?.content){state.messages.push({role:"assistant",content:result.message.content});addMessage("assistant",result.message.content)}else{const msg="Yerel AI isteği başarısız: "+(result.error||"Bilinmeyen hata")+". Ollama'nın Mac’inde çalıştığını ve modelin indirildiğini kontrol et.";state.messages.push({role:"assistant",content:msg});addMessage("assistant",msg)}save();send.disabled=false;status.textContent="Hazır"}
+function openModal(title,body){$("#modal-content").innerHTML='<h2>'+title+'</h2>'+body+'<div class="modal-actions"><button class="secondary" data-action="modal-close">Kapat</button></div>';$("#modal").classList.remove("hidden")}
+document.addEventListener("click",async e=>{
+ const v=e.target.closest("[data-view]");if(v){go(v.dataset.view);return}
+ const p=e.target.closest("[data-prompt]");if(p){$("#chat-input").value=p.dataset.prompt;$("#chat-input").focus();return}
+ const url=e.target.closest("[data-url]");if(url){await window.nova.openUrl(url.dataset.url);return}
+ const select=e.target.closest("[data-select-model]");if(select){state.model=select.dataset.selectModel;save();refreshModels();toast("Model seçildi: "+state.model);if(activeView==="models")go("models");return}
+ const del=e.target.closest("[data-delete-task]");if(del){state.tasks.splice(Number(del.dataset.deleteTask),1);save();go("automation");return}
+ const file=e.target.closest("[data-open-file]");if(file){const path=state.files[Number(file.dataset.openFile)];await window.nova.openPath(path);return}
+ const b=e.target.closest("[data-action]");if(!b)return;
+ const a=b.dataset.action;
+ if(a==="refresh-models"){await refreshModels();toast("Model listesi yenilendi")}
+ if(a==="choose-files"){const paths=await window.nova.chooseFiles();state.files=[...new Set([...paths,...state.files])];save();go("files")}
+ if(a==="attach"){const paths=await window.nova.chooseFiles();if(paths.length){state.files=[...new Set([...paths,...state.files])];save();$("#chat-input").value+=" [Dosya seçildi: "+paths.map(x=>x.split("/").pop()).join(", ")+"] ";toast("Dosya referansı eklendi; dosya içeriği henüz okunmuyor.")}}
+ if(a==="voice")toast("Sesli konuşma motoru bu sürümde henüz etkin değil.")
+ if(a==="agent-expand"){expanded=!expanded;document.body.classList.toggle("expanded",expanded)}
+ if(a==="pin")toast("NOVA Agent paneli ana ekrana sabitlendi.")
+ if(a==="settings")go("settings")
+ if(a==="profile")openModal("NOVA profilini düzenle",'<label class="field">Sana nasıl hitap edeyim?<input id="profile-name" value="'+esc(state.name)+'"></label><button class="primary" data-action="save-profile">Kaydet</button>')
+ if(a==="save-profile"){const n=$("#profile-name").value.trim();if(n){state.name=n;save();$("#welcome-name").textContent=n;go("home");toast("Profil kaydedildi")}}
+ if(a==="notifications")toast("Şu anda yeni bildirim yok.")
+ if(a==="theme")toast("Cyber teması zaten etkin.")
+ if(a==="modal-close")$("#modal").classList.add("hidden")
+ if(a==="focus-chat")$("#chat-input").focus()
+ if(a==="fullscreen")window.nova.window("fullscreen")
 });
-window.addEventListener("error", (event) => {
-  const root = document.querySelector("#content");
-  if (root) root.insertAdjacentHTML("afterbegin", '<div class="notice"><div class="notice-mark">!</div><div><b>NOVA bir arayüz hatası yakaladı</b><p>'+esc(event.message || "Bilinmeyen hata")+'</p></div></div>');
+document.addEventListener("submit",async e=>{
+ if(e.target.id==="chat-form"){e.preventDefault();await sendChat();return}
+ if(e.target.id==="task-form"){e.preventDefault();const d=new FormData(e.target);state.tasks.unshift(d.get("task"));save();go("automation");toast("Görev listene kaydedildi");return}
+ if(e.target.id==="profile-form"){e.preventDefault();const d=new FormData(e.target);state.name=d.get("name").trim()||"Orhan";save();go("settings");toast("Profil kaydedildi");return}
 });
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="chat-input"&&!e.shiftKey){e.preventDefault();sendChat()}if(e.key==="Escape")$("#modal").classList.add("hidden")});
+document.querySelectorAll("[data-window]").forEach(b=>b.addEventListener("click",()=>window.nova.window(b.dataset.window)));
+$("#welcome-name").textContent=state.name;clock();setInterval(clock,1000);setInterval(()=>{if(activeView==="home")updateSystem()},5000);renderHistory();go("home");refreshModels();

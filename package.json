@@ -1,6 +1,6 @@
 {
   "name":"nova",
-  "version":"0.2.0",
+  "version":"0.2.1",
   "description":"NOVA — a unified AI desktop environment by NOVA TECH",
   "main":"src/main.js",
   "author":"NOVA TECH",

@@ -1,0 +1,35 @@
+{
+  "name": "nova",
+  "version": "0.1.0",
+  "description": "NOVA — AI documentary and video production studio",
+  "main": "src/main.js",
+  "author": "NOVA TECH",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dist:mac": "electron-builder --mac dmg --x64",
+    "dist:mac:arm": "electron-builder --mac dmg --arm64"
+  },
+  "devDependencies": {
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "tech.nova.studio",
+    "productName": "NOVA",
+    "directories": { "output": "release" },
+    "files": ["src/**/*", "package.json"],
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
+      "category": "public.app-category.video",
+      "identity": null
+    },
+    "dmg": {
+      "title": "NOVA Installer",
+      "contents": [
+        { "x": 130, "y": 180 },
+        { "x": 410, "y": 180, "type": "link", "path": "/Applications" }
+      ]
+    }
+  }
+}

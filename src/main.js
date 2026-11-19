@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, ipcMain, dialog } = require("electron");
+const { app, BrowserWindow, shell, ipcMain, dialog, session } = require("electron");
 const os = require("node:os");
 const path = require("node:path");
 let win;
@@ -25,6 +25,10 @@ function createWindow(){
   win.on("closed",()=>{win=null;});
 }
 app.whenReady().then(()=>{
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    if (permission === "media" && details.mediaTypes?.includes("audio")) return callback(true);
+    callback(false);
+  });
   ipcMain.handle("nova:ollama-models",async()=>{
     try{const r=await fetch("http://127.0.0.1:11434/api/tags");if(!r.ok)throw Error("Ollama yanıt vermedi");return {ok:true,...await r.json()};}
     catch(e){return {ok:false,error:e.message};}

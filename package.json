@@ -1,36 +1,18 @@
 {
-  "name": "nova",
-  "version": "0.2.0",
-  "description": "NOVA — a global AI desktop environment by NOVA TECH",
-  "main": "src/main.js",
-  "author": "NOVA TECH",
-  "license": "UNLICENSED",
-  "scripts": {
-    "start": "electron .",
-    "dist:mac": "electron-builder --mac dmg --x64 --publish never",
-    "dist:mac:arm": "electron-builder --mac dmg --arm64 --publish never",
-    "dist:mac:all": "electron-builder --mac dmg --x64 --arm64 --publish never"
-  },
-  "devDependencies": {
-    "electron": "^39.0.0",
-    "electron-builder": "^26.0.12"
-  },
-  "build": {
-    "appId": "tech.nova.desktop",
-    "productName": "NOVA",
-    "directories": { "output": "release" },
-    "files": ["src/**/*", "package.json"],
-    "mac": {
-      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
-      "category": "public.app-category.productivity",
-      "identity": null
-    },
-    "dmg": {
-      "title": "NOVA Installer",
-      "contents": [
-        { "x": 130, "y": 180 },
-        { "x": 410, "y": 180, "type": "link", "path": "/Applications" }
-      ]
-    }
+  "name":"nova",
+  "version":"0.2.0",
+  "description":"NOVA — a unified AI desktop environment by NOVA TECH",
+  "main":"src/main.js",
+  "author":"NOVA TECH",
+  "license":"UNLICENSED",
+  "scripts":{"start":"electron .","dist:mac":"electron-builder --mac dmg --x64","dist:mac:arm":"electron-builder --mac dmg --arm64"},
+  "devDependencies":{"electron":"^39.0.0","electron-builder":"^26.0.12"},
+  "build":{
+    "appId":"tech.nova.desktop",
+    "productName":"NOVA",
+    "directories":{"output":"release"},
+    "files":["src/**/*","package.json"],
+    "mac":{"target":[{"target":"dmg","arch":["x64","arm64"]}],"category":"public.app-category.productivity","identity":null,"extendInfo":{"LSUIElement":false}},
+    "dmg":{"title":"NOVA Installer","contents":[{"x":130,"y":180},{"x":410,"y":180,"type":"link","path":"/Applications"}]}
   }
 }

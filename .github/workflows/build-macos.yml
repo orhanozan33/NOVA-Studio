@@ -1,0 +1,33 @@
+name: Build NOVA for macOS
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm install
+      - name: Build Intel and Apple Silicon installers
+        run: npx electron-builder --mac dmg --x64 --arm64
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: NOVA-macOS-installers
+          path: release/*.dmg
+          if-no-files-found: error
+          retention-days: 14

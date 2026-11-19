@@ -5,6 +5,10 @@ let state={...defaults,...load()};
 let models=[];
 let activeView="home";
 let expanded=false;
+let recognition=null;
+let listening=false;
+let voiceEnabled=true;
+let speaking=false;
 function load(){try{return JSON.parse(localStorage.getItem(KEY)||"{}")}catch{return {}}}
 function save(){localStorage.setItem(KEY,JSON.stringify(state))}
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
@@ -36,7 +40,32 @@ async function refreshModels(){const r=await window.nova.getModels();models=r.ok
 async function updateSystem(){try{const s=await window.nova.system();const c=$("#cpu-value"),r=$("#ram-value");if(c){c.textContent=s.cpu+"%";$("#cpu-meter").style.setProperty("--v",s.cpu+"%");r.textContent=s.memoryUsed+"%";$("#ram-meter").style.setProperty("--v",s.memoryUsed+"%");}}catch{}}
 function addMessage(role,text){const box=$("#chat-messages");const div=document.createElement("div");div.className="message "+role;div.innerHTML=role==="assistant"?'<span class="wave">✦</span><div><p>'+esc(text)+'</p><small>NOVA</small></div>':'<div>'+esc(text)+'</div>';box.appendChild(div);box.scrollTop=box.scrollHeight;}
 function renderHistory(){const box=$("#chat-messages");box.innerHTML='<div class="message assistant"><span class="wave">✦</span><div><b>Merhaba '+esc(state.name)+'!</b><p>Ben NOVA. Bugün senin için ne yapabilirim?</p><small>NOVA AI</small></div></div>';for(const m of state.messages.slice(-30))addMessage(m.role,m.content);}
-async function sendChat(text){const prompt=(text||$("#chat-input").value).trim();if(!prompt)return;$("#chat-input").value="";state.messages.push({role:"user",content:prompt});addMessage("user",prompt);const send=$("#chat-form button.send");send.disabled=true;const status=$("#agent-status");status.textContent="Yanıt hazırlanıyor";if(!state.model){addMessage("assistant","Henüz yerel model seçilmedi. Model Merkezi’nden bir Ollama modeli seç veya Ollama bağlantısını kontrol et.");send.disabled=false;status.textContent="Model bekleniyor";return}const result=await window.nova.chat({model:state.model,messages:[{role:"system",content:"You are NOVA, a helpful general-purpose AI assistant created by NOVA TECH. Reply in the user's language. Be clear, accurate, and honest about capabilities. You cannot claim to perform actions unless a tool has actually done them."},...state.messages.slice(-24)]});if(result.ok&&result.message?.content){state.messages.push({role:"assistant",content:result.message.content});addMessage("assistant",result.message.content)}else{const msg="Yerel AI isteği başarısız: "+(result.error||"Bilinmeyen hata")+". Ollama'nın Mac’inde çalıştığını ve modelin indirildiğini kontrol et.";state.messages.push({role:"assistant",content:msg});addMessage("assistant",msg)}save();send.disabled=false;status.textContent="Hazır"}
+function stopSpeaking(){if("speechSynthesis" in window)window.speechSynthesis.cancel();setSpeaking(false)}
+function setSpeaking(on){speaking=on;document.body.classList.toggle("avatar-speaking",on);const b=$(".composer .voice");if(b){b.classList.toggle("speaking",on);b.title=on?"Konuşmayı durdur":"Sesli giriş";}}
+function speakText(text){
+ if(!voiceEnabled||!("speechSynthesis" in window))return;
+ window.speechSynthesis.cancel();
+ const clean=String(text).replace(/\[[^\]]*\]/g," ").slice(0,6000);
+ const u=new SpeechSynthesisUtterance(clean);
+ u.lang=/[ğüşöçıİ]/i.test(clean)?"tr-TR":"en-US";u.rate=1;u.pitch=1.04;u.volume=1;
+ const voices=window.speechSynthesis.getVoices();
+ const preferred=voices.find(v=>v.lang.toLowerCase().startsWith(u.lang.slice(0,2)));
+ if(preferred)u.voice=preferred;
+ u.onstart=()=>setSpeaking(true);u.onend=()=>setSpeaking(false);u.onerror=()=>setSpeaking(false);
+ window.speechSynthesis.speak(u);
+}
+function toggleVoiceInput(){
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){toast("Bu macOS/Electron sürümünde ses tanıma desteği bulunamadı. Metin girişi kullanılabilir.");return}
+ if(listening&&recognition){recognition.stop();return}
+ recognition=new SR();recognition.lang="tr-TR";recognition.interimResults=true;recognition.continuous=false;
+ recognition.onstart=()=>{listening=true;const b=$(".composer .voice");b?.classList.add("listening");if(b)b.title="Dinleniyor — durdurmak için tıkla";$("#agent-status").textContent="Seni dinliyorum";};
+ recognition.onresult=e=>{let text="";for(let i=e.resultIndex;i<e.results.length;i++)text+=e.results[i][0].transcript;$("#chat-input").value=text;if(e.results[e.results.length-1].isFinal){recognition.stop();}};
+ recognition.onerror=e=>{toast("Ses tanıma hatası: "+e.error);};
+ recognition.onend=()=>{listening=false;const b=$(".composer .voice");b?.classList.remove("listening");if(b)b.title="Sesli giriş";$("#agent-status").textContent="Hazır";if($("#chat-input").value.trim())sendChat();};
+ recognition.start();
+}
+async function sendChat(text){const prompt=(text||$("#chat-input").value).trim();if(!prompt)return;$("#chat-input").value="";state.messages.push({role:"user",content:prompt});addMessage("user",prompt);const send=$("#chat-form button.send");send.disabled=true;const status=$("#agent-status");status.textContent="Yanıt hazırlanıyor";if(!state.model){addMessage("assistant","Henüz yerel model seçilmedi. Model Merkezi’nden bir Ollama modeli seç veya Ollama bağlantısını kontrol et.");send.disabled=false;status.textContent="Model bekleniyor";return}const result=await window.nova.chat({model:state.model,messages:[{role:"system",content:"You are NOVA, a helpful general-purpose AI assistant created by NOVA TECH. Reply in the user's language. Be clear, accurate, and honest about capabilities. You cannot claim to perform actions unless a tool has actually done them."},...state.messages.slice(-24)]});if(result.ok&&result.message?.content){state.messages.push({role:"assistant",content:result.message.content});addMessage("assistant",result.message.content);speakText(result.message.content)}else{const msg="Yerel AI isteği başarısız: "+(result.error||"Bilinmeyen hata")+". Ollama'nın Mac’inde çalıştığını ve modelin indirildiğini kontrol et.";state.messages.push({role:"assistant",content:msg});addMessage("assistant",msg)}save();send.disabled=false;status.textContent="Hazır"}
 function openModal(title,body){$("#modal-content").innerHTML='<h2>'+title+'</h2>'+body+'<div class="modal-actions"><button class="secondary" data-action="modal-close">Kapat</button></div>';$("#modal").classList.remove("hidden")}
 document.addEventListener("click",async e=>{
  const v=e.target.closest("[data-view]");if(v){go(v.dataset.view);return}
@@ -50,7 +79,7 @@ document.addEventListener("click",async e=>{
  if(a==="refresh-models"){await refreshModels();toast("Model listesi yenilendi")}
  if(a==="choose-files"){const paths=await window.nova.chooseFiles();state.files=[...new Set([...paths,...state.files])];save();go("files")}
  if(a==="attach"){const paths=await window.nova.chooseFiles();if(paths.length){state.files=[...new Set([...paths,...state.files])];save();$("#chat-input").value+=" [Dosya seçildi: "+paths.map(x=>x.split("/").pop()).join(", ")+"] ";toast("Dosya referansı eklendi; dosya içeriği henüz okunmuyor.")}}
- if(a==="voice")toast("Sesli konuşma motoru bu sürümde henüz etkin değil.")
+ if(a==="voice"){if(speaking){stopSpeaking();}else if(listening){recognition?.stop();}else{toggleVoiceInput();}}
  if(a==="agent-expand"){expanded=!expanded;document.body.classList.toggle("expanded",expanded)}
  if(a==="pin")toast("NOVA Agent paneli ana ekrana sabitlendi.")
  if(a==="settings")go("settings")

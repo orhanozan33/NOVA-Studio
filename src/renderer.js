@@ -69,6 +69,20 @@ function showProjectForm() {
   document.querySelector("#create-project-form").onsubmit=e=>{e.preventDefault();const d=new FormData(e.target);state.projects.unshift({id:id(),title:d.get("title"),kind:d.get("kind"),language:d.get("language"),created:new Date().toISOString()});save();render("projects");};
 }
 function bindExternal(root) { root.querySelectorAll("[data-external]").forEach(a=>a.onclick=e=>{e.preventDefault();window.nova?.openExternal(a.dataset.external);}); }
-document.querySelectorAll(".nav").forEach(b=>b.addEventListener("click",()=>go(b.dataset.page)));
-document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.go)));
-document.querySelector("#new-project")?.addEventListener("click",()=>{go("projects");showProjectForm();});
+// Delegated handlers keep navigation working after every screen is re-rendered.
+document.addEventListener("click", (event) => {
+  const nav = event.target.closest(".nav[data-page]");
+  if (nav) { event.preventDefault(); go(nav.dataset.page); return; }
+  const tile = event.target.closest("[data-go]");
+  if (tile) { event.preventDefault(); go(tile.dataset.go); return; }
+  const create = event.target.closest("#new-project, #empty-create, #show-project-form");
+  if (create) {
+    event.preventDefault();
+    if (create.id === "new-project") go("projects");
+    if (create.id === "empty-create" || create.id === "show-project-form" || create.id === "new-project") showProjectForm();
+  }
+});
+window.addEventListener("error", (event) => {
+  const root = document.querySelector("#content");
+  if (root) root.insertAdjacentHTML("afterbegin", '<div class="notice"><div class="notice-mark">!</div><div><b>NOVA bir arayüz hatası yakaladı</b><p>'+esc(event.message || "Bilinmeyen hata")+'</p></div></div>');
+});

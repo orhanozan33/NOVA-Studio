@@ -47,7 +47,7 @@ function speakText(text){
  window.speechSynthesis.cancel();
  const clean=String(text).replace(/\[[^\]]*\]/g," ").slice(0,6000);
  const u=new SpeechSynthesisUtterance(clean);
- u.lang=/[ğüşöçıİ]/i.test(clean)?"tr-TR":"en-US";u.rate=1;u.pitch=1.04;u.volume=1;
+ u.lang=/\b(the|and|what|how|please|hello|thanks)\b/i.test(clean)&&!/[ğüşöçıİ]/i.test(clean)?"en-US":"tr-TR";u.rate=1;u.pitch=1.04;u.volume=1;
  const voices=window.speechSynthesis.getVoices();
  const preferred=voices.find(v=>v.lang.toLowerCase().startsWith(u.lang.slice(0,2)));
  if(preferred)u.voice=preferred;
